@@ -1,0 +1,10 @@
+# Source code is published via "files" field in package.json
+# But we explicitly exclude these from the npm package
+
+examples/
+tests/
+.sisyphus/
+.gitignore
+tsconfig.json
+*.md
+!.gitignore

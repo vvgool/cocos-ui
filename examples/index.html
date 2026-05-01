@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cocos-ui — WebGL Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+    #canvas { width: 100%; height: 100%; display: block; }
+    #status {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #e0e0e0; font-family: system-ui, sans-serif; font-size: 18px;
+      text-align: center; line-height: 1.6; max-width: 600px;
+    }
+    #status.error { color: #ff6b6b; }
+    #status .hint { font-size: 14px; color: #888; margin-top: 16px; }
+    #status code { background: #333; padding: 2px 8px; border-radius: 4px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="status">Loading Cocos Creator Engine…</div>
+
+  <script type="module">
+    const statusEl = document.getElementById('status');
+
+    function showError(msg, hint) {
+      if (!statusEl) return;
+      statusEl.className = 'error';
+      statusEl.innerHTML = msg + '<div class="hint">' + (hint || '') + '</div>';
+    }
+
+    // Load Cocos4 engine from available CDN sources
+    async function loadEngine() {
+      // Try known Cocos Creator CDN URLs
+      const urls = [
+        // Cocos4 is not yet published to npm/CDN.
+        // When cocos-creator@4.x becomes available, uncomment one of these:
+        // 'https://cdn.jsdelivr.net/npm/cocos-creator@4.0.0/dist/cocos4.min.js',
+        // 'https://unpkg.com/cocos-creator@4.0.0/dist/cocos4.min.js',
+      ];
+
+      for (const url of urls) {
+        try {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = url;
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('Failed to load: ' + url));
+            document.head.appendChild(script);
+          });
+          // Wait for cc global
+          for (let i = 0; i < 100; i++) {
+            if (typeof cc !== 'undefined') return;
+            await new Promise(r => setTimeout(r, 100));
+          }
+        } catch (e) {
+          console.warn('CDN load failed:', url, e);
+        }
+      }
+
+      // If no CDN worked, check if cc is already available (bundled by Vite)
+      if (typeof cc !== 'undefined') return;
+
+      throw new Error('Cocos4 engine not found');
+    }
+
+    try {
+      statusEl.textContent = 'Loading Cocos Creator Engine…';
+      await loadEngine();
+      statusEl.style.display = 'none';
+
+      const { main } = await import('./main.tsx');
+      main();
+    } catch (err) {
+      console.error('Failed to initialize:', err);
+      showError(
+        'Cocos4 Engine 未加载',
+        'cocos-ui 需要 Cocos4 引擎提供运行时支持。<br>' +
+        '请将 Cocos4 引擎构建产物放在 <code>examples/</code> 下，或修改 <code>index.html</code> 中的 CDN URL。<br><br>' +
+        '参考：<a href="https://github.com/cocos/cocos4" style="color:#4ea8de;">github.com/cocos/cocos4</a>' +
+        '<br><br>已加载的依赖：✅ cocos-ui 框架（' + Object.keys(import.meta).length + ' 模块）' +
+        '<br>需要：⚠️ cocos-creator (Cocos4 Engine)'
+      );
+    }
+  </script>
+</body>
+</html>

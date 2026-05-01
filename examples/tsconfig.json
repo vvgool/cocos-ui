@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "cocos-ui",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": "..",
+    "paths": {
+      "cocos-ui": ["./src/index.ts"],
+      "cocos-ui/jsx-runtime": ["./src/core/jsx-runtime.ts"]
+    }
+  },
+  "include": ["./**/*.ts", "./**/*.tsx", "../src/**/*.ts", "../src/**/*.tsx", "../src/**/*.d.ts"],
+  "exclude": ["demo.tsx"]
+}

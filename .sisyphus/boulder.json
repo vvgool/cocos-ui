@@ -1,0 +1,68 @@
+{
+  "active_plan": "/Users/wiesenwang/CocosProjects/CocosUI/.sisyphus/plans/complete-qa.md",
+  "started_at": "2026-05-01T05:57:49.352Z",
+  "session_ids": [
+    "ses_21df574eeffe2rgIT4B6y27Jgw"
+  ],
+  "session_origins": {
+    "ses_21df574eeffe2rgIT4B6y27Jgw": "direct"
+  },
+  "plan_name": "complete-qa",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "**Vitest 配置 + 测试脚本**",
+      "session_id": "ses_21de071c1ffeLg7yd3SOLcEdV4",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-05-01T06:03:11.182Z"
+    },
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "**测试工具函数 + Mock 设置**",
+      "session_id": "ses_21ddb8bc0ffeKHhV3yu6EV9f63",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-05-01T06:08:38.121Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "**JSX Runtime 测试**",
+      "session_id": "ses_21dcb8be2ffeZDaaxjBK9DZi0a",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-05-01T06:29:31.521Z"
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "**View 组件测试**",
+      "session_id": "ses_21dad9434ffe903TwUe2qM2G1G",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-05-01T06:56:40.064Z"
+    },
+    "todo:28": {
+      "task_key": "todo:28",
+      "task_label": "28",
+      "task_title": "**README.md 编写**",
+      "session_id": "ses_21dabb4c5ffeX8HrSNgtAVBh5x",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "updated_at": "2026-05-01T06:58:40.870Z"
+    },
+    "todo:33": {
+      "task_key": "todo:33",
+      "task_label": "33",
+      "task_title": "**GitHub Actions CI workflow**",
+      "session_id": "ses_21da92fefffeLHkxM5PHBr62HZ",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-05-01T07:01:10.830Z"
+    }
+  }
+}

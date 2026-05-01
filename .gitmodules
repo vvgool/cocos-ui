@@ -1,0 +1,3 @@
+[submodule "deps/cocos4"]
+	path = deps/cocos4
+	url = ./deps/cocos4

@@ -1,0 +1,7 @@
+{
+  "entryPoints": ["src/index.ts"],
+  "out": "docs/api",
+  "includeVersion": true,
+  "readme": "none",
+  "name": "CocosUI API Documentation"
+}
