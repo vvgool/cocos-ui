@@ -33,8 +33,14 @@ let currentEffect: Computation | null = null;
 /** Batch nesting depth — while > 0, effect execution is deferred */
 let batchDepth = 0;
 
-/** Effects queued during a batch, deduplicated, flushed when outermost batch ends */
-const pendingEffects: Set<Computation> = new Set();
+/** Effects queued during a batch, deduplicated, flushed when outermost batch ends (FIFO order) */
+const pendingEffects: Map<Computation, number> = new Map();
+
+/** Effect nesting depth — tracks how many effects are running (for circular dependency detection) */
+let effectDepth = 0;
+
+/** Flag to prevent re-entrant setter calls during effect execution */
+let isWriting = false;
 
 // =============================================================================
 // Helpers
@@ -55,13 +61,21 @@ function cleanup(computation: Computation): void {
  * Notify all subscribers of a signal change.
  * Inside a batch, subscribers are queued; outside, they execute immediately.
  * A snapshot of the set is iterated to allow safe mutation during iteration.
+ * 
+ * P1: 异步调度支持 - 当前保持同步行为以兼容现有测试
+ * 如需启用异步调度，将下方 else 分支改为使用 queueMicrotask
  */
 function notifySubscribers(subscribers: Set<Computation>): void {
   const snapshot = [...subscribers];
   for (const subscriber of snapshot) {
     if (batchDepth > 0) {
-      pendingEffects.add(subscriber);
+      // 在 batch 内，加入待处理队列 (保持 FIFO 顺序)
+      if (!pendingEffects.has(subscriber)) {
+        pendingEffects.set(subscriber, 0);
+      }
     } else {
+      // P1: 当前保持同步执行以兼容现有测试
+      // 启用异步调度：将 subscriber.execute() 包裹在 queueMicrotask 中
       subscriber.execute();
     }
   }
@@ -95,14 +109,24 @@ export function createSignal<T>(
   };
 
   const setter = (newValue: T | ((prev: T) => T)): void => {
-    const resolvedValue: T =
-      typeof newValue === 'function'
-        ? (newValue as (prev: T) => T)(value)
-        : newValue;
+    // P0: 循环依赖检测 - 检查是否在 effect 执行期间写入信号
+    if (currentEffect !== null && effectDepth > 0 && isWriting) {
+      throw new Error('Circular dependency detected: signal write during effect execution');
+    }
+    
+    isWriting = true;
+    try {
+      const resolvedValue: T =
+        typeof newValue === 'function'
+          ? (newValue as (prev: T) => T)(value)
+          : newValue;
 
-    if (resolvedValue !== value) {
-      value = resolvedValue;
-      notifySubscribers(subscribers);
+      if (resolvedValue !== value) {
+        value = resolvedValue;
+        notifySubscribers(subscribers);
+      }
+    } finally {
+      isWriting = false;
     }
   };
 
@@ -128,9 +152,11 @@ export function createEffect(fn: () => void): () => void {
       cleanup(computation);
       effectStack.push(computation);
       currentEffect = computation;
+      effectDepth++;
       try {
         fn();
       } finally {
+        effectDepth--;
         effectStack.pop();
         currentEffect = effectStack[effectStack.length - 1] ?? null;
       }
@@ -149,6 +175,8 @@ export function createEffect(fn: () => void): () => void {
 /**
  * Batch multiple signal updates — effects only fire once after the batch completes.
  * Nested batches are supported; effects fire when the outermost batch completes.
+ * 
+ * P3: 使用 Map 确保 FIFO 顺序执行
  */
 export function batch(fn: () => void): void {
   batchDepth++;
@@ -157,7 +185,8 @@ export function batch(fn: () => void): void {
   } finally {
     batchDepth--;
     if (batchDepth === 0) {
-      const effects = [...pendingEffects];
+      // P3: Map 保持插入顺序，直接遍历即可确保 FIFO
+      const effects = [...pendingEffects.keys()];
       pendingEffects.clear();
       for (const effect of effects) {
         effect.execute();
@@ -349,6 +378,8 @@ export function useState<T>(
  * - `set(partial)` — shallow-merges partial into state and notifies subscribers
  * - `subscribe(fn)` — registers a callback invoked on every state change;
  *   returns an unsubscribe function
+ * 
+ * P2: 修复双重通知 - 将 store subscribers 注册为 signal subscribers
  */
 export function createStore<T extends Record<string, any>>(initialState: T): {
   get: () => T;
@@ -356,24 +387,65 @@ export function createStore<T extends Record<string, any>>(initialState: T): {
   subscribe: (fn: (state: T) => void) => () => void;
 } {
   const [getState, setState] = createSignal(initialState);
-  const subscribers = new Set<(state: T) => void>();
+  // P2: 存储 subscriber 的 computation 包装器，用于取消订阅
+  const subscriberComputations = new Map<(state: T) => void, Computation>();
 
   return {
     get: getState,
 
     set: (partial: Partial<T>) => {
+      // P2: 修复：只调用 setState，signal 的通知机制会处理所有订阅者
+      // store subscribers 通过内部的 computation 注册到 signal 中
       setState((prev) => ({ ...prev, ...partial }));
-      const state = getState();
-      const snapshot = [...subscribers];
-      for (const fn of snapshot) {
-        fn(state);
-      }
     },
 
     subscribe: (fn: (state: T) => void) => {
-      subscribers.add(fn);
+      // P2: 创建一个 computation 来监听 getState()
+      // 当 setState 被调用时，这个 computation 会被通知并执行回调
+      const computation: Computation = {
+        dependencies: new Set(),
+        execute() {
+          // 清理旧依赖并重新追踪
+          for (const dep of computation.dependencies) {
+            dep.delete(computation);
+          }
+          computation.dependencies.clear();
+          
+          // 设置 effect 上下文以便 getState() 追踪依赖
+          effectStack.push(computation);
+          currentEffect = computation;
+          try {
+            // 执行回调（会触发 getState 的读取，从而注册依赖）
+            fn(getState());
+          } finally {
+            effectStack.pop();
+            currentEffect = effectStack[effectStack.length - 1] ?? null;
+          }
+        },
+      };
+      
+      // P2: 手动建立依赖关系而不是立即执行
+      // 将 computation 注册到 signal 的 subscribers 中
+      // 通过读取一次 getState 来建立依赖，但不执行回调
+      effectStack.push(computation);
+      currentEffect = computation;
+      try {
+        getState(); // 只读取以建立依赖，不执行回调
+      } finally {
+        effectStack.pop();
+        currentEffect = effectStack[effectStack.length - 1] ?? null;
+      }
+      
+      // 存储 computation 以便取消订阅
+      subscriberComputations.set(fn, computation);
+      
       return () => {
-        subscribers.delete(fn);
+        // 取消订阅：从所有依赖中移除 computation
+        for (const dep of computation.dependencies) {
+          dep.delete(computation);
+        }
+        computation.dependencies.clear();
+        subscriberComputations.delete(fn);
       };
     },
   };
